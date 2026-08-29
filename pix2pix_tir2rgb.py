@@ -261,7 +261,11 @@ def psnr(pred, target):
     """Mean PSNR in dB for tensors in [-1, 1] (so peak-to-peak range is 2)."""
     mse = torch.mean((pred - target) ** 2, dim=[1, 2, 3])
     return (10 * torch.log10(4.0 / mse)).mean().item()
-
+#  take four patches from the inage and similar patched take from the other image
+# eg - 4 - 5 patches from 1 from center 4 from corners
+# dont compute mse for the full image -> evevn if the images are distinct their mse maybe similar
+# simialr = mse low dissimlar = mse high (expected) maybe low as well
+# to say the images are similar all 5 patches must be similar even if oe dissimilar not considered
 
 def sample_and_report(G, tir, rgb, out_path, label, show):
     """Run the fixed pairs through G, save a 3-row grid, optionally display it.

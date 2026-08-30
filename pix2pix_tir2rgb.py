@@ -349,6 +349,21 @@ def display_grid(path, title, block=False):
 
 
 # --------------------------------------------------------------------------
+# Weight Initialization
+# --------------------------------------------------------------------------
+def weights_init_normal(m):
+    """Custom weight initialization for GAN stability."""
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+        if m.bias is not None:
+            nn.init.constant_(m.bias.data, 0.0)
+    elif classname.find("InstanceNorm") != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0.0)
+
+
+# --------------------------------------------------------------------------
 # Training
 # --------------------------------------------------------------------------
 def train(args):
@@ -360,13 +375,20 @@ def train(args):
 
     train_ds = TIR2RGBDataset(args.data_root, args.rgb_dir, args.tir_dir,
                                split="train", val_split=args.val_split, img_size=args.img_size)
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    
+    # Added pin_memory=True for faster CPU-to-GPU data transfer
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, 
+                              shuffle=True, num_workers=4, pin_memory=True)
 
     sample_tir, sample_rgb = build_sample_batch(args, device)
     has_samples = sample_tir is not None
 
     G = GeneratorUNet(in_channels=1, out_channels=3).to(device)
     D = PatchDiscriminator(in_channels=1 + 3).to(device)
+
+    # Apply weight initialization for GAN stability
+    G.apply(weights_init_normal)
+    D.apply(weights_init_normal)
 
     criterion_gan = nn.MSELoss()
     criterion_l1 = nn.L1Loss()

@@ -42,21 +42,21 @@ from torchvision import transforms
 from torchvision.utils import save_image
 from PIL import Image
 
+import torchvision.transforms.functional as TF
+from torch.cuda.amp import autocast, GradScaler
 
 # --------------------------------------------------------------------------
 # Dataset
 # --------------------------------------------------------------------------
 class TIR2RGBDataset(Dataset):
-    """Loads paired (TIR, RGB) images with matching filenames from flat
-    rgb_dir / tir_dir folders, then splits into train/val internally.
-
-    split="all" skips the split and uses every matched pair, which is what the
-    --sample_root folder wants."""
+    """Loads paired (TIR, RGB) images with matching filenames, 
+    splits them, and applies perfectly aligned joint augmentations."""
 
     def __init__(self, root, rgb_dir="class1", tir_dir="class2",
                  split="train", val_split=0.1, img_size=256, seed=42):
         self.rgb_dir = Path(root) / rgb_dir
         self.tir_dir = Path(root) / tir_dir
+        self.split = split  # Save split to check during __getitem__
 
         rgb_names = {f.name for f in self.rgb_dir.iterdir() if f.is_file()}
         tir_names = {f.name for f in self.tir_dir.iterdir() if f.is_file()}
@@ -68,10 +68,7 @@ class TIR2RGBDataset(Dataset):
             print(f"Warning: {len(missing_rgb)} TIR files and {len(missing_tir)} "
                   f"RGB files have no matching pair and will be skipped.")
         if not matched:
-            raise RuntimeError(
-                f"No matching filenames found between {self.rgb_dir} and {self.tir_dir}. "
-                f"Filenames must match exactly between the two folders."
-            )
+            raise RuntimeError("No matching filenames found.")
 
         import random
         rng = random.Random(seed)
@@ -92,7 +89,7 @@ class TIR2RGBDataset(Dataset):
 
         self.tir_transform = transforms.Compose([
             transforms.Resize((img_size, img_size), Image.BICUBIC),
-            transforms.Grayscale(num_output_channels=1),  # TIR is single-channel
+            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ])
@@ -109,6 +106,14 @@ class TIR2RGBDataset(Dataset):
         name = self.filenames[idx]
         tir = Image.open(self.tir_dir / name).convert("L")
         rgb = Image.open(self.rgb_dir / name).convert("RGB")
+
+        # Joint Augmentation: Apply same spatial transforms to both images
+        if self.split == "train":
+            import random
+            if random.random() > 0.5:
+                tir = TF.hflip(tir)
+                rgb = TF.hflip(rgb)
+
         return self.tir_transform(tir), self.rgb_transform(rgb)
 
 
@@ -363,15 +368,16 @@ def train(args):
     G = GeneratorUNet(in_channels=1, out_channels=3).to(device)
     D = PatchDiscriminator(in_channels=1 + 3).to(device)
 
-    criterion_gan = nn.MSELoss()   # LSGAN-style loss, more stable than vanilla BCE
+    criterion_gan = nn.MSELoss()
     criterion_l1 = nn.L1Loss()
     lambda_l1 = args.lambda_l1
 
     opt_G = torch.optim.Adam(G.parameters(), lr=args.lr, betas=(0.5, 0.999))
     opt_D = torch.optim.Adam(D.parameters(), lr=args.lr, betas=(0.5, 0.999))
 
-    # Baseline grid from the untrained generator, so you can see what "no
-    # training yet" looks like and tell real progress from wishful thinking.
+    # Initialize Mixed Precision Scaler
+    scaler = GradScaler()
+
     if has_samples:
         sample_and_report(G, sample_tir, sample_rgb,
                           f"{args.sample_dir}/epoch_0000.png", "epoch 0 (untrained)", args.show)
@@ -380,38 +386,45 @@ def train(args):
         for i, (tir, rgb) in enumerate(train_loader):
             tir, rgb = tir.to(device), rgb.to(device)
 
-            # PatchGAN output size depends on img_size; compute dynamically
             with torch.no_grad():
-                patch_out = D(tir, rgb)
+                with autocast():
+                    patch_out = D(tir, rgb)
             valid = torch.ones_like(patch_out, requires_grad=False)
             fake = torch.zeros_like(patch_out, requires_grad=False)
 
             # ---- Train Generator ----
             opt_G.zero_grad()
-            fake_rgb = G(tir)
-            pred_fake = D(tir, fake_rgb)
-            loss_gan = criterion_gan(pred_fake, valid)
-            loss_l1 = criterion_l1(fake_rgb, rgb)
-            loss_G = loss_gan + lambda_l1 * loss_l1
-            loss_G.backward()
-            opt_G.step()
+            with autocast():
+                fake_rgb = G(tir)
+                pred_fake = D(tir, fake_rgb)
+                loss_gan = criterion_gan(pred_fake, valid)
+                loss_l1 = criterion_l1(fake_rgb, rgb)
+                loss_G = loss_gan + lambda_l1 * loss_l1
+            
+            scaler.scale(loss_G).backward()
+            scaler.step(opt_G)
 
             # ---- Train Discriminator ----
             opt_D.zero_grad()
-            pred_real = D(tir, rgb)
-            loss_real = criterion_gan(pred_real, valid)
-            pred_fake = D(tir, fake_rgb.detach())
-            loss_fake = criterion_gan(pred_fake, fake)
-            loss_D = 0.5 * (loss_real + loss_fake)
-            loss_D.backward()
-            opt_D.step()
+            with autocast():
+                pred_real = D(tir, rgb)
+                loss_real = criterion_gan(pred_real, valid)
+                # Detach fake_rgb so we don't backprop into G here
+                pred_fake = D(tir, fake_rgb.detach())
+                loss_fake = criterion_gan(pred_fake, fake)
+                loss_D = 0.5 * (loss_real + loss_fake)
+            
+            scaler.scale(loss_D).backward()
+            scaler.step(opt_D)
+            
+            # Update scaler for next iteration
+            scaler.update()
 
             if i % args.log_interval == 0:
                 print(f"[Epoch {epoch}/{args.epochs}] [Batch {i}/{len(train_loader)}] "
                       f"D_loss: {loss_D.item():.4f} G_loss: {loss_G.item():.4f} "
                       f"(gan {loss_gan.item():.4f}, l1 {loss_l1.item():.4f})")
 
-        # Save sample outputs + checkpoints periodically
         if has_samples and epoch % args.sample_interval == 0:
             sample_and_report(G, sample_tir, sample_rgb,
                               f"{args.sample_dir}/epoch_{epoch:04d}.png",
@@ -429,7 +442,6 @@ def train(args):
                                   f"{args.sample_dir}/final.png", "final", show=False)
         display_grid(f"{args.sample_dir}/final.png",
                      f"final   PSNR {score:.2f} dB", block=True)
-
 
 def get_args():
     p = argparse.ArgumentParser()

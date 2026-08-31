@@ -909,3 +909,17 @@ Std PSNR  (batch-wise): 4.56 dB
 Per-file PSNR saved to: E:\PIX2PIX\eval_results\psnr_results.txt
 
 Process finished with exit code 0
+
+
+Patch Psnr normal
+________________________________________________________________------------------------------------------------------------------
+
+E:\PIX2PIX\.venv\Scripts\python.exe E:\PIX2PIX\eval_psnr.py --data_root E:\PIX2PIX\subset_repo --rgb_dir class1 --tir_dir class2 --model_path E:\PIX2PIX\checkpoints\G_final.pth --out_dir E:\PIX2PIX\eval_results
+Using device: cuda
+[val] 297 paired images (total matched pairs: 2977)
+Evaluating 297 pairs...
+Mean PSNR (batch-wise): 16.71 dB
+Std PSNR  (batch-wise): 1.36 dB
+Per-file PSNR saved to: E:\PIX2PIX\eval_results\psnr_results.txt
+
+Process finished with exit code 0

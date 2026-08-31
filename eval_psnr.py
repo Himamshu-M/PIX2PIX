@@ -60,7 +60,7 @@ def evaluate_psnr(args):
             fake = G(tir)
 
             # Full-image PSNR for this batch
-            batch_psnr = psnr(fake, rgb)
+            batch_psnr = psnr_full(fake, rgb)
             psnr_vals.append(batch_psnr)
             filenames.extend(ds.filenames[
                 len(filenames) : len(filenames) + tir.size(0)

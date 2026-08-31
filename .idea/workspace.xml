@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8dc5792b-119e-4a1a-9d7e-1c4f2974662e" name="Changes" comment="Successful first 10 epoch for trial run">
-      <change afterPath="$PROJECT_DIR$/eval_psnr.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pix2pix_tir2rgb.py" beforeDir="false" afterPath="$PROJECT_DIR$/pix2pix_tir2rgb.py" afterDir="false" />
-    </list>
+    <list default="true" id="8dc5792b-119e-4a1a-9d7e-1c4f2974662e" name="Changes" comment="improvement in psnr algorithm and execution on 2997 image pair" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -44,18 +40,19 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.train_pix2pix.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/PIX2PIX&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.eval_psnr.executor": "Run",
+    "Python.train_pix2pix.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "E:/PIX2PIX"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Python.eval_psnr">
     <configuration name="eval_psnr" type="PythonConfigurationType" factoryName="Python">
       <module name="PIX2PIX" />
@@ -131,7 +128,15 @@
       <option name="project" value="LOCAL" />
       <updated>1786988905106</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="improvement in psnr algorithm and execution on 2997 image pair">
+      <option name="closed" value="true" />
+      <created>1788156197357</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1788156197357</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -147,6 +152,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Successful first 10 epoch for trial run" />
-    <option name="LAST_COMMIT_MESSAGE" value="Successful first 10 epoch for trial run" />
+    <MESSAGE value="improvement in psnr algorithm and execution on 2997 image pair" />
+    <option name="LAST_COMMIT_MESSAGE" value="improvement in psnr algorithm and execution on 2997 image pair" />
   </component>
 </project>

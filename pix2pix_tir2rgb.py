@@ -257,7 +257,50 @@ def build_sample_batch(args, device):
     return tir.to(device), rgb.to(device)
 
 
-def psnr(pred, target):
+def psnr(pred, target, patch_size=64):
+    """
+    Patch-based mean PSNR in dB for tensors in [-1, 1].
+    Evaluates 5 patches (4 corners, 1 center) and uses the worst-case (max) MSE
+    to ensure the images are only considered similar if ALL patches are similar.
+    """
+    B, C, H, W = pred.shape
+    p = patch_size
+
+    # 1. Define slices for the 5 patches: TL, TR, BL, BR, Center
+    slices = [
+        (slice(None), slice(None), slice(0, p), slice(0, p)),  # Top-Left
+        (slice(None), slice(None), slice(0, p), slice(-p, None)),  # Top-Right
+        (slice(None), slice(None), slice(-p, None), slice(0, p)),  # Bottom-Left
+        (slice(None), slice(None), slice(-p, None), slice(-p, None)),  # Bottom-Right
+        (slice(None), slice(None), slice(H // 2 - p // 2, H // 2 + p // 2),
+         slice(W // 2 - p // 2, W // 2 + p // 2))  # Center
+    ]
+
+    patch_mses = []
+    for s in slices:
+        pred_patch = pred[s]
+        target_patch = target[s]
+        # Calculate MSE for this specific patch
+        mse = torch.mean((pred_patch - target_patch) ** 2, dim=[1, 2, 3])
+        patch_mses.append(mse)
+
+    # Stack MSEs -> shape (Batch, 5)
+    patch_mses = torch.stack(patch_mses, dim=1)
+
+    # 2. Take the maximum MSE across the 5 patches for each image
+    # This guarantees that if even ONE patch is highly dissimilar, the score reflects it.
+    worst_mse, _ = torch.min(patch_mses, dim=1)
+
+    # Prevent division by zero just in case of a perfect match
+    worst_mse = torch.clamp(worst_mse, min=1e-8)
+
+    # 3. Compute PSNR (peak-to-peak is 2, so 2^2 = 4.0)
+    batch_psnr = 10 * torch.log10(4.0 / worst_mse)
+
+    return batch_psnr.mean().item()
+
+
+def psnr_old(pred, target):
     """Mean PSNR in dB for tensors in [-1, 1] (so peak-to-peak range is 2)."""
     mse = torch.mean((pred - target) ** 2, dim=[1, 2, 3])
     return (10 * torch.log10(4.0 / mse)).mean().item()
